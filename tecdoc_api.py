@@ -97,7 +97,6 @@ def get_applicability_wrapper(args):
     """Обертка для get_applicability, обрабатывающая строку с запятыми"""
     parts = parse_comma_args(args, 3)
     if len(parts) >= 3:
-        # Проверка на валидность ID
         if not parts[0] or parts[0] == '0' or parts[0].lower() == 'none':
             return {
                 "error": "ART_ID не может быть пустым, 'None' или равным '0'",
@@ -106,9 +105,8 @@ def get_applicability_wrapper(args):
         return get_applicability(parts[0], parts[1], parts[2])
     return {"error": "Недостаточно аргументов", "data": {"list": []}}
 
-
 def get_applicability(art_id, art_article_nr, sup_brand):
-    """Получение применимости запчасти к автомобилям"""
+    """Получение применимости запчасти к автомобилям (только названия)"""
     server_url = "http://62.109.23.215:3000"
     url = f"{server_url}/tecdoc-applicability?art_id={art_id}&article={art_article_nr}&brand={sup_brand}"
     
@@ -117,7 +115,19 @@ def get_applicability(art_id, art_article_nr, sup_brand):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return response.json()
+        full_data = response.json()
+        
+        # Извлекаем только названия, ограничиваем до 15 штук
+        names = []
+        if full_data.get("data", {}).get("list"):
+            names = [item.get("NAME", "") for item in full_data["data"]["list"][:30]]
+            names = [name for name in names if name]  # Убираем пустые
+        
+        return {
+            "success": True,
+            "data": {"list": [{"NAME": name} for name in names]}
+        }
+        
     except Exception as e:
         print(f"Ошибка при запросе применимости: {str(e)}")
         return {"error": str(e), "data": {"list": []}}
